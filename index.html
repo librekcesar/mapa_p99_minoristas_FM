@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>Mapa puntos 99</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.3.0/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://librekcesar.github.io/busca_zipcodes4/leaflet-search-master/leaflet-search-master/src/leaflet-search.css" />
+    
+    <style>
+        body { margin: 0; padding: 0; }
+        #map { width: 100%; height: 900px; box-shadow: 5px 5px 5px #888; }
+
+        #map-title {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: white;
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 20px;
+            font-family: Arial, sans-serif;
+            font-weight: bold;
+            z-index: 1000;
+            border: 1px solid black;
+        }
+
+        #map-legend {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: white;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-family: Arial, sans-serif;
+            font-size: 13px;
+            line-height: 1.5em;
+            box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.3);
+            z-index: 1000;
+            max-height: 400px;
+            overflow-y: auto;
+            width: 250px;
+        }
+
+        #legend-toggle { cursor: pointer; margin-bottom: 5px; font-weight: bold; }
+        #toggle-icon { float: right; }
+        .legend-circle { width: 12px; height: 12px; display: inline-block; border-radius: 50%; border: 1px solid #000; margin-right: 5px; }
+    </style>
+</head>
+<body>
+
+    <div id="map-title">Ubicaciones de puntos 99 y minoristas</div>
+    <div id="map"></div>
+
+    <div id="map-legend">
+        <div id="legend-toggle">Simbología <span id="toggle-icon">▼</span></div>
+        <div id="legend-content">
+            <strong>Cobertura Primera milla</strong><br>
+            <div><span class="legend-circle" style="background-color: #09bed6;"></span> Zonas con recolección</div>
+            <div><span class="legend-circle" style="background-color: #e52421;"></span> Zonas sin recolección</div>
+            
+            <hr>
+            <strong>Ubicación de puntos 99 minutos</strong><br>
+            <div><span class="legend-circle" style="background-color: #0e5a04;"></span> Amazon</div>
+            <div><span class="legend-circle" style="background-color: #16a703;"></span> 99 minutos</div>
+            <div><span class="legend-circle" style="background-color: #22fa05;"></span> Híbrido</div>
+            <hr>
+            <strong>Cobertura Parcel. Códigos postales 2026</strong><br>
+            <div><span class="legend-circle" style="background-color:#f1ed08;"></span>Ubicación de minoristas</div>
+            <strong>Áreas de servicio de puntos 99 (~2.5km)</strong><br>
+            <div><span class="legend-circle" style="background-color:#76f526;"></span>Áreas de servicio de p99 (buffers)</div>
+
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.3.0/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chroma-js/2.1.0/chroma.min.js"></script>
+    <script src="https://librekcesar.github.io/busca_zipcodes4/leaflet-search-master/leaflet-search-master/src/leaflet-search.js"></script>
+
+    <script src="integradores_loc_union.js"></script>
+    <script src="ubica_p99.js"></script>
+    <script src="poligonos_FM_v82.js"></script>
+    <script src="buffers_2_5km.js"></script>
+
+    <script>
+        // Inicialización del Mapa
+        var map = L.map("map").setView([19.48094, -99.1592], 10);
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
+
+        ///----Capa de puntos de integradores-----///
+
+         var centroideLayer = L.geoJSON(dic, {
+            pointToLayer: function (feature, latlng) {
+                return L.circleMarker(latlng, {
+                    radius: 8,
+                    fillColor: "#f1ed08",  // Color para centroides
+                    color: "#000",
+                    weight: 1,
+                    opacity: 1,
+                    fillOpacity: 0.8
+                });
+            },
+            onEachFeature: function (feature, layer) {
+                layer.bindPopup("<b>Remitente:</b> " + feature.properties.Remitente + "<br><b>Origen CP:</b> " + feature.properties.Origen_CP);
+            }
+        });
+
+        ////----Segunda capa de puntos puntos 99 --- ///
+
+        // 1. Definimos una función para asignar colores según la categoría
+function getColor2(Servicio) {
+    switch (Servicio) {
+        case 'Amazon': return '#0e5a04'; // 
+        case '99minutos': return '#16a703'; //
+        case 'Hibrido': return '#22fa05'; // 
+        default:        return '#f1ed08'; // Color por defecto (Amarillo)
+    }
+}
+
+// 2. Aplicamos la lógica en la capa GeoJSON
+var centroideLayer2 = L.geoJSON(dic2, {
+    pointToLayer: function (feature, latlng) {
+        return L.circleMarker(latlng, {
+            radius: 8,
+            // Aquí llamamos a la función usando la propiedad del GeoJSON
+            fillColor: getColor2(feature.properties.Servicio), 
+            color: "#000",
+            weight: 1,
+            opacity: 1,
+            fillOpacity: 0.8
+        });
+    },
+    onEachFeature: function (feature, layer) {
+        layer.bindPopup(
+            "<b>Nombre del p99:</b> " + feature.properties.NOMBRE + "<br>" +
+            "<b>Dirección:</b> " + feature.properties.DIRECCION + "<br>" +
+            "<b>Tipo de servicio:</b> " + feature.properties.Servicio
+        );
+    }
+});
+
+
+
+        // --- CAPA 1: COBERTURA PRIMERA MILLA ---
+        function getColorStation(s) {
+            var stations = { 'Yes': '#09bed6', 'No': '#e52421' };
+            return stations[s] || '#gray';
+        }
+
+        var layerGroup = L.geoJSON(sameday, {
+            style: function(f) {
+                return { fillColor: getColorStation(f.properties.pick_up), weight: 1, color: 'black', fillOpacity: 0.4 };
+            },
+            onEachFeature: function(f, l) {
+                l.bindPopup('<b>zonificacion:</b> ' + f.properties.zonificacion + 
+                           '<br><b>Número de minoristas:</b> ' + f.properties.num_integradores  +
+                           '<br><b>Número de puntos 99:</b> ' + f.properties.num_p99);
+            }
+        });
+
+        // --- CAPA 2: BUFFERS  ---
+        function getColorStation2(s) {
+            var stations = { 'MEX': '#76f526' };
+            return stations[s] || '#gray';
+        }
+
+        var layerGroup2 = L.geoJSON(buffers, {
+            style: function(f) {
+                return { fillColor: getColorStation2(f.properties.country), weight: 1, color: 'black', fillOpacity: 0.4 };
+            },
+            onEachFeature: function(f, l) {
+                l.bindPopup('<b>Nombre del p99:</b> ' + f.properties.NOMBRE + 
+                           '<br><b>Dirección:</b> ' + f.properties.DIRECCION  +
+                           '<br><b>Número de minoristas:</b> ' + f.properties.minoristas);
+            }
+        });
+
+       
+
+        // Añadir capas al mapa inicialmente
+        
+        layerGroup.addTo(map);
+        layerGroup2.addTo(map);
+
+        // --- CONTROLES DE CAPA ---
+        var overlayMaps = {
+            "Ubicación minoristas": centroideLayer,
+            "Ubicación de puntos 99": centroideLayer2,
+            "Cobertura FM": layerGroup,
+            "Área de servicio p99 (buffers)": layerGroup2
+            
+        };
+        L.control.layers(null, overlayMaps, { collapsed: false }).addTo(map);
+
+        // --- CONFIGURACIÓN DEL BUSCADOR PARA LAS TRES CAPAS ---
+        
+        // Creamos un grupo lógico que contenga las 3 capas para el buscador
+        var searchGroup = L.featureGroup([centroideLayer, layerGroup, layerGroup2]);
+
+        var searchControl = new L.Control.Search({
+            layer: searchGroup,
+            propertyName: 'zonificacion', // Atributo solicitado
+            marker: false,
+            initial: false,
+            zoom: 13,
+            textPlaceholder: "Buscar por zonificación",
+            moveToLocation: function(latlng, title, map) {
+                map.setView(latlng, 13);
+            }
+        });
+
+        searchControl.on('search:locationfound', function(e) {
+            // Resaltar visualmente el polígono encontrado
+            e.layer.setStyle({ fillOpacity: 0.7, color: '#0aecdb', weight: 4 });
+            if(e.layer._popup) e.layer.openPopup();
+        }).on('search:collapsed search:cancel', function(e) {
+            // Restaurar estilos de todas las capas al limpiar búsqueda
+            layerGroup.eachLayer(function(l) { layerGroup.resetStyle(l); });
+            layerGroup2.eachLayer(function(l) { layerGroup2.resetStyle(l); });
+            layerGroup3.eachLayer(function(l) { layerGroup3.resetStyle(l); });
+        });
+
+        map.addControl(searchControl);
+
+        // --- LÓGICA DE LEYENDA COLAPSABLE ---
+        var legendToggle = document.getElementById('legend-toggle');
+        var legendContent = document.getElementById('legend-content');
+        var toggleIcon = document.getElementById('toggle-icon');
+        var isCollapsed = false;
+
+        legendToggle.addEventListener('click', function() {
+            isCollapsed = !isCollapsed;
+            legendContent.style.display = isCollapsed ? 'none' : 'block';
+            toggleIcon.textContent = isCollapsed ? '▶' : '▼';
+        });
+
+    </script>
+</body>
+</html>
