@@ -66,10 +66,12 @@
             <div><span class="legend-circle" style="background-color: #16a703;"></span> 99 minutos</div>
             <div><span class="legend-circle" style="background-color: #22fa05;"></span> Híbrido</div>
             <hr>
-            <strong>Ubicaciones de clientes minoristas</strong><br>
+            <strong>Ubicación de clientes minoristas</strong><br>
             <div><span class="legend-circle" style="background-color:#f1ed08;"></span>Ubicación de minoristas</div>
             <strong>Áreas de servicio de puntos 99 (~2.5km)</strong><br>
             <div><span class="legend-circle" style="background-color:#76f526;"></span>Áreas de servicio de p99 (buffers)</div>
+            <strong>Cobertura Parcel LM</strong><br>
+            <div><span class="legend-circle" style="background-color:#ae19db;"></span>Ubicación de minoristas</div>
 
         </div>
     </div>
@@ -82,6 +84,7 @@
     <script src="ubica_p99.js"></script>
     <script src="poligonos_FM_v82.js"></script>
     <script src="buffers_2_5km.js"></script>
+    <script src="poligonos_zonas_v99.js"></script>
 
     <script>
         // Inicialización del Mapa
@@ -178,19 +181,43 @@ var centroideLayer2 = L.geoJSON(dic2, {
             }
         });
 
+
+
+        ///cobertura LM
+
+         
+        function getColorStation3(s) {
+            var stations = { 'MEX': '#ae19db' };
+            return stations[s] || '#gray';
+        }
+
+        var layerGroup3 = L.geoJSON(zonas, {
+            style: function(f) {
+                return { fillColor: getColorStation3(f.properties.country), weight: 1, color: 'black', fillOpacity: 0.4 };
+            },
+            onEachFeature: function(f, l) {
+                l.bindPopup('<b>Zonificación:</b> ' + f.properties.zonificacion + 
+                           '<br><b>Estación:</b> ' + f.properties.station_code  +
+                           '<br><b>Localidad:</b> ' + f.properties.locality);
+            }
+        });
+
+
        
 
         // Añadir capas al mapa inicialmente
         
         layerGroup.addTo(map);
         layerGroup2.addTo(map);
+        layerGroup3.addTo(map);
 
         // --- CONTROLES DE CAPA ---
         var overlayMaps = {
             "Ubicación minoristas": centroideLayer,
             "Ubicación de puntos 99": centroideLayer2,
             "Cobertura FM": layerGroup,
-            "Área de servicio p99 (buffers)": layerGroup2
+            "Área de servicio p99 (buffers)": layerGroup2,
+            "Cobertura LM": layerGroup3
             
         };
         L.control.layers(null, overlayMaps, { collapsed: false }).addTo(map);
@@ -198,7 +225,7 @@ var centroideLayer2 = L.geoJSON(dic2, {
         // --- CONFIGURACIÓN DEL BUSCADOR PARA LAS TRES CAPAS ---
         
         // Creamos un grupo lógico que contenga las 3 capas para el buscador
-        var searchGroup = L.featureGroup([centroideLayer, layerGroup, layerGroup2]);
+        var searchGroup = L.featureGroup([centroideLayer, layerGroup3, layerGroup]);
 
         var searchControl = new L.Control.Search({
             layer: searchGroup,
@@ -239,5 +266,4 @@ var centroideLayer2 = L.geoJSON(dic2, {
 
     </script>
 </body>
-
 </html>
